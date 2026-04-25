@@ -1,0 +1,16 @@
+-- Migration: 001_create_users
+-- Creates the users table with UUID primary key.
+-- Run with: make migrate
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- provides gen_random_uuid()
+
+CREATE TABLE IF NOT EXISTS users (
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    email      TEXT        NOT NULL UNIQUE,
+    password   TEXT        NOT NULL,           -- bcrypt hash, never plaintext
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Index on email for fast lookup during login.
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

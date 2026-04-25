@@ -1,0 +1,31 @@
+package database
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq" // PostgreSQL driver — registers "postgres" with database/sql
+)
+
+// DB wraps sqlx.DB so callers import this package rather than sqlx directly.
+// This makes it easier to swap the underlying driver in the future.
+type DB struct {
+	*sqlx.DB
+}
+
+// Connect opens a PostgreSQL connection pool using the provided DATABASE_URL.
+// It also verifies the connection is actually alive with a Ping.
+func Connect(dsn string) (*DB, error) {
+	db, err := sqlx.Connect("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("connecting to postgres: %w", err)
+	}
+
+	// Connection pool settings — tune for your load.
+	db.SetMaxOpenConns(25)                 // max concurrent connections to Postgres
+	db.SetMaxIdleConns(5)                  // connections kept alive when idle
+	db.SetConnMaxLifetime(5 * time.Minute) // recycle connections after 5 minutes
+
+	return &DB{db}, nil
+}

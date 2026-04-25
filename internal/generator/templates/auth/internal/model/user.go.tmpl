@@ -1,0 +1,15 @@
+package model
+
+import "time"
+
+// User is the database representation of a user row.
+// Struct tags:
+//   db:"..."   — sqlx maps column names to fields
+//   json:"..." — controls JSON serialization in API responses
+type User struct {
+	ID        string    `db:"id"         json:"id"`
+	Email     string    `db:"email"      json:"email"`
+	Password  string    `db:"password"   json:"-"` // never expose the hash in responses
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+}

@@ -1,0 +1,59 @@
+package auth
+
+import (
+	"context"
+	"net/http"
+	"strings"
+
+	"[[ .ModulePath ]]/pkg/response"
+)
+
+// contextKey is an unexported type for context keys in this package.
+// Using a dedicated type prevents collisions with keys from other packages.
+type contextKey string
+
+const userIDKey contextKey = "userID"
+
+// Middleware validates the Bearer token from the Authorization header
+// and stores the user ID in the request context for downstream handlers.
+//
+// Usage in chi router:
+//
+//	r.Group(func(r chi.Router) {
+//	    r.Use(auth.Middleware(jwtService))
+//	    r.Get("/protected", handler)
+//	})
+func Middleware(svc *JWTService) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				response.Error(w, http.StatusUnauthorized, "authorization header required")
+				return
+			}
+
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
+				response.Error(w, http.StatusUnauthorized, "invalid authorization header format")
+				return
+			}
+
+			claims, err := svc.ParseToken(parts[1])
+			if err != nil {
+				response.Error(w, http.StatusUnauthorized, "invalid or expired token")
+				return
+			}
+
+			// Store user ID in context so handlers can access it without re-parsing the token.
+			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// UserIDFromContext extracts the user ID stored by Middleware.
+// Returns empty string if the middleware was not applied to this route.
+func UserIDFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(userIDKey).(string)
+	return v
+}

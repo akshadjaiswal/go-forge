@@ -1,0 +1,46 @@
+package handler
+
+import (
+	"database/sql"
+	"errors"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+
+	"[[ .ModulePath ]]/internal/auth"
+	"[[ .ModulePath ]]/internal/repository"
+	"[[ .ModulePath ]]/pkg/response"
+)
+
+// UsersHandler handles user resource requests.
+type UsersHandler struct {
+	users *repository.UserRepository
+	jwt   *auth.JWTService
+}
+
+func NewUsersHandler(users *repository.UserRepository, jwt *auth.JWTService) *UsersHandler {
+	return &UsersHandler{users: users, jwt: jwt}
+}
+
+// GetUser returns a single user by ID.
+// Requires a valid Bearer token (enforced by auth.Middleware on the route group).
+//
+// GET /users/{id}
+// Header: Authorization: Bearer <token>
+// 200 → {"id": "...", "email": "...", "created_at": "..."}
+// 404 → {"error": "user not found"}
+func (h *UsersHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	user, err := h.users.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.Error(w, http.StatusNotFound, "user not found")
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "could not retrieve user")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, user)
+}

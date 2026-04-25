@@ -1,0 +1,115 @@
+package handler
+
+import (
+	"database/sql"
+	"errors"
+	"net/http"
+
+	"github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
+
+	"[[ .ModulePath ]]/internal/auth"
+	"[[ .ModulePath ]]/internal/repository"
+	val "[[ .ModulePath ]]/internal/validator"
+	"[[ .ModulePath ]]/pkg/response"
+)
+
+// AuthHandler handles user registration and login.
+type AuthHandler struct {
+	users *repository.UserRepository
+	jwt   *auth.JWTService
+}
+
+func NewAuthHandler(users *repository.UserRepository, jwt *auth.JWTService) *AuthHandler {
+	return &AuthHandler{users: users, jwt: jwt}
+}
+
+// RegisterRequest is the expected JSON body for POST /auth/register.
+type RegisterRequest struct {
+	Email    string `json:"email"    validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8"`
+}
+
+// Register creates a new user account.
+//
+// POST /auth/register
+// Body: {"email": "user@example.com", "password": "secret123"}
+// 201 Created   → {"id": "...", "email": "..."}
+// 409 Conflict  → {"error": "email already registered"}
+// 422 Unprocessable → {"error": "validation failed", "fields": [...]}
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req RegisterRequest
+	if !val.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	// Hash the password with bcrypt — cost 12 is a good balance of security and speed.
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "could not process password")
+		return
+	}
+
+	user, err := h.users.Create(r.Context(), req.Email, string(hash))
+	if err != nil {
+		// PostgreSQL unique constraint violation — email already exists.
+		if isUniqueViolation(err) {
+			response.Error(w, http.StatusConflict, "email already registered")
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "could not create user")
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, user)
+}
+
+// LoginRequest is the expected JSON body for POST /auth/login.
+type LoginRequest struct {
+	Email    string `json:"email"    validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+// Login authenticates a user and returns a JWT token.
+//
+// POST /auth/login
+// Body: {"email": "user@example.com", "password": "secret123"}
+// 200 OK  → {"token": "eyJ..."}
+// 401     → {"error": "invalid credentials"}
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if !val.DecodeAndValidate(w, r, &req) {
+		return
+	}
+
+	user, err := h.users.GetByEmail(r.Context(), req.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Don't reveal whether the email exists — return the same message for both cases.
+			response.Error(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "could not retrieve user")
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		response.Error(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+
+	token, err := h.jwt.GenerateToken(user.ID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "could not generate token")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"token": token})
+}
+
+// isUniqueViolation checks if an error is a PostgreSQL unique constraint violation.
+// Uses pq.Error type assertion and SQLSTATE code 23505 — reliable, no string matching.
+func isUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && pqErr.Code == "23505"
+}
