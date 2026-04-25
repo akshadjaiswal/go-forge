@@ -1,0 +1,36 @@
+.PHONY: dev build test lint migrate docker-up docker-down
+
+## dev: run the server (auto-reloads if you install Air: go install github.com/air-verse/air@latest)
+dev:
+	go run ./cmd/api/...
+
+## build: compile a production binary into bin/
+build:
+	go build -ldflags="-s -w" -o bin/[[ .ProjectName ]] ./cmd/api/...
+
+## test: run all tests
+test:
+	go test ./...
+
+## lint: vet + staticcheck
+lint:
+	go vet ./...
+
+[[ if .WithAuth -]]
+## migrate: apply SQL migrations using psql (DATABASE_URL must be set)
+migrate:
+	@for f in migrations/*.sql; do \
+		echo "Applying $$f..."; \
+		psql "$$DATABASE_URL" -f "$$f"; \
+	done
+[[ end -]]
+
+[[ if .WithDocker -]]
+## docker-up: start postgres + api via docker-compose
+docker-up:
+	docker compose up -d
+
+## docker-down: stop all containers
+docker-down:
+	docker compose down
+[[ end -]]

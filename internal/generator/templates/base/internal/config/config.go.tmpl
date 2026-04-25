@@ -1,0 +1,52 @@
+package config
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/joho/godotenv"
+)
+
+// Config holds all application configuration loaded from environment variables.
+// Values are populated at startup and never mutated after that.
+type Config struct {
+	Port  string
+	DBUrl string
+	[[ if .WithAuth -]]
+	JWTSecret string
+	[[ end -]]
+}
+
+// Load reads environment variables (from .env if present) and returns a Config.
+// Panics on missing required values so the problem is caught at startup, not runtime.
+func Load() (*Config, error) {
+	// godotenv.Load is intentionally lenient — .env is optional in production
+	// where env vars are injected by the orchestrator (Docker, Kubernetes, etc.).
+	_ = godotenv.Load()
+
+	cfg := &Config{
+		Port:  getEnv("PORT", "8080"),
+		DBUrl: mustGetEnv("DATABASE_URL"),
+		[[ if .WithAuth -]]
+		JWTSecret: mustGetEnv("JWT_SECRET"),
+		[[ end -]]
+	}
+	return cfg, nil
+}
+
+// mustGetEnv returns the value of key or panics with a clear message.
+func mustGetEnv(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		panic(fmt.Sprintf("required environment variable %q is not set", key))
+	}
+	return v
+}
+
+// getEnv returns the value of key or fallback if not set.
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}

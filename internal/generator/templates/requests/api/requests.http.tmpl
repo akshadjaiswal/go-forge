@@ -1,0 +1,93 @@
+### [[ .ProjectName ]] — REST Client test file
+### Install the VS Code "REST Client" extension to use this file.
+### Click "Send Request" above any request to execute it.
+
+@baseUrl = http://localhost:8080
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Health
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Health check — should return 200 {"status": "ok"}
+GET {{baseUrl}}/health
+
+[[ if .WithAuth -]]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Auth
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Register a new user — 201 Created
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+###
+
+### Register — missing password → 422 Validation Failed
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+###
+
+### Register — invalid email → 422 Validation Failed
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "password123"
+}
+
+###
+
+### Login — 200 OK with JWT token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+###
+
+### Login — wrong password → 401 Unauthorized
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "wrongpassword"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Users (protected — requires Bearer token from login)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@token = PASTE_TOKEN_HERE
+
+### Get user by ID — 200 OK
+GET {{baseUrl}}/users/PASTE_USER_ID_HERE
+Authorization: Bearer {{token}}
+
+###
+
+### Get user — no token → 401 Unauthorized
+GET {{baseUrl}}/users/PASTE_USER_ID_HERE
+
+###
+
+### Get user — invalid UUID → 404 Not Found
+GET {{baseUrl}}/users/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+[[ end -]]

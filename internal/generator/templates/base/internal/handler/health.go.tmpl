@@ -1,0 +1,24 @@
+package handler
+
+import (
+	"net/http"
+
+	"[[ .ModulePath ]]/pkg/response"
+)
+
+// HealthHandler handles health check requests.
+type HealthHandler struct{}
+
+func NewHealthHandler() *HealthHandler {
+	return &HealthHandler{}
+}
+
+// Health responds with a simple status payload.
+// Used by load balancers and monitoring systems to verify the service is up.
+//
+// GET /health → 200 {"status": "ok"}
+func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
+	response.JSON(w, http.StatusOK, map[string]string{
+		"status": "ok",
+	})
+}

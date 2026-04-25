@@ -1,0 +1,19 @@
+package response
+
+import (
+	"encoding/json"
+	"net/http"
+)
+
+// JSON encodes v as JSON and writes it to w with the given HTTP status code.
+// Every handler uses this so the Content-Type header is always set correctly.
+func JSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
+}
+
+// Error writes a standard {"error": "..."} JSON response.
+func Error(w http.ResponseWriter, status int, msg string) {
+	JSON(w, status, map[string]string{"error": msg})
+}

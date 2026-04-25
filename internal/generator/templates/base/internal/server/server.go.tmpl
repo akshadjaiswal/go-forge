@@ -1,0 +1,72 @@
+package server
+
+import (
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"[[ .ModulePath ]]/internal/config"
+	"[[ .ModulePath ]]/internal/handler"
+	[[ if .WithAuth -]]
+	"[[ .ModulePath ]]/internal/auth"
+	"[[ .ModulePath ]]/internal/database"
+	"[[ .ModulePath ]]/internal/repository"
+	[[ end -]]
+)
+
+// NewRouter builds and returns the chi router with all middleware and routes wired.
+[[ if .WithAuth -]]
+func NewRouter(cfg *config.Config, db *database.DB, log *slog.Logger) http.Handler {
+[[ else -]]
+func NewRouter(cfg *config.Config, log *slog.Logger) http.Handler {
+[[ end -]]
+	r := chi.NewRouter()
+
+	// ── Global middleware ────────────────────────────────────────────────────
+	r.Use(middleware.RequestID)                  // attaches X-Request-Id to every request
+	r.Use(middleware.RealIP)                     // reads X-Real-IP / X-Forwarded-For
+	r.Use(middleware.Recoverer)                  // catches panics and returns 500
+	r.Use(middleware.Timeout(60 * time.Second))  // abort slow requests
+
+	// Structured request logger — logs method, path, and status for every request.
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Info("request",
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.String("request_id", middleware.GetReqID(r.Context())),
+			)
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// ── Handlers ─────────────────────────────────────────────────────────────
+	healthHandler := handler.NewHealthHandler()
+
+	[[ if .WithAuth -]]
+	userRepo    := repository.NewUserRepository(db.DB)
+	jwtService  := auth.NewJWTService(cfg.JWTSecret)
+	authHandler := handler.NewAuthHandler(userRepo, jwtService)
+	userHandler := handler.NewUsersHandler(userRepo, jwtService)
+	[[ end -]]
+
+	// ── Routes ───────────────────────────────────────────────────────────────
+	r.Get("/health", healthHandler.Health)
+
+	[[ if .WithAuth -]]
+	// Public auth routes — no token required
+	r.Post("/auth/register", authHandler.Register)
+	r.Post("/auth/login", authHandler.Login)
+
+	// Protected routes — require a valid JWT Bearer token
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(jwtService))
+		r.Get("/users/{id}", userHandler.GetUser)
+	})
+	[[ end -]]
+
+	return r
+}

@@ -1,0 +1,53 @@
+package main
+
+import (
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+
+	"[[ .ModulePath ]]/internal/config"
+	[[ if .WithAuth -]]
+	"[[ .ModulePath ]]/internal/database"
+	[[ end -]]
+	"[[ .ModulePath ]]/internal/server"
+	"[[ .ModulePath ]]/pkg/logger"
+)
+
+func main() {
+	// Load configuration from environment variables / .env file.
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Set up structured JSON logger (slog).
+	log := logger.New()
+
+	[[ if .WithAuth -]]
+	// Connect to PostgreSQL.
+	db, err := database.Connect(cfg.DBUrl)
+	if err != nil {
+		log.Error("failed to connect to database", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer db.Close()
+	log.Info("connected to database")
+	[[ end -]]
+
+	// Build the HTTP router with all routes wired.
+	[[ if .WithAuth -]]
+	router := server.NewRouter(cfg, db, log)
+	[[ else -]]
+	router := server.NewRouter(cfg, log)
+	[[ end -]]
+
+	addr := ":" + cfg.Port
+	log.Info("server starting", slog.String("addr", addr))
+
+	if err := http.ListenAndServe(addr, router); err != nil {
+		log.Error("server stopped", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+}
