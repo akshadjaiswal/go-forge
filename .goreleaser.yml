@@ -1,0 +1,58 @@
+version: 2
+
+project_name: forge
+
+before:
+  hooks: []
+
+builds:
+  - id: forge
+    main: ./main.go
+    binary: forge
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: forge-archive
+    builds:
+      - forge
+    name_template: "forge_{{.Version}}_{{.Os}}_{{.Arch}}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    formats:
+      - tar.gz
+    files:
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: akshadjaiswal
+    name: go-forge
+  draft: false
+  prerelease: auto
