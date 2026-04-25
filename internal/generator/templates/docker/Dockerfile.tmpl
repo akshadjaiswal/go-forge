@@ -1,0 +1,31 @@
+# ── Stage 1: Build ───────────────────────────────────────────────────────────
+# Use the full Go image to compile. The resulting binary is statically linked.
+FROM golang:[[ .GoVersion ]]-alpine AS builder
+
+WORKDIR /app
+
+# Download dependencies first — Docker layer cache means this step is only
+# re-run when go.mod or go.sum change, not on every source code change.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# CGO_ENABLED=0   → pure Go binary, no C library dependencies
+# GOOS=linux      → target Linux regardless of build machine OS
+# -ldflags "-s -w" → strip debug info for smaller binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/api/...
+
+# ── Stage 2: Run ─────────────────────────────────────────────────────────────
+# scratch = empty image. Result: ~10MB image instead of ~300MB.
+FROM scratch
+
+# Copy the compiled binary from the builder stage.
+COPY --from=builder /app/server /server
+
+# Copy TLS certificates so the binary can make HTTPS calls (e.g. to external APIs).
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+EXPOSE 8080
+
+CMD ["/server"]
