@@ -11,6 +11,8 @@ Context for Claude to work effectively on this project across sessions.
 **GitHub:** `git@github-personal:akshadjaiswal/go-forge.git`
 **Module path:** `github.com/akshadjaiswal/go-forge`
 **Owner:** Akshad Jaiswal (Go learner, JS/Node background)
+**Latest release:** v0.1.0 — published on GitHub Releases with pre-built binaries
+**Binary name:** `go-forge` — `go install` names the binary after the last module path segment, not `rootCmd.Use`
 
 ---
 
@@ -192,6 +194,28 @@ github.com/manifoldco/promptui v0.9.x  # interactive prompts
 
 Nothing else. Keep forge's own dependency footprint minimal.
 
+**go.mod minimum:** `go 1.21` (covers `log/slog` + `embed`). Do NOT raise this above the current Go stable release — CI uses `go-version: stable` and will fail if go.mod requires a pre-release version.
+
+---
+
+## CI / Release pipeline
+
+```
+.github/workflows/ci.yml       # build + vet + test on every push/PR to main
+.github/workflows/release.yml  # GoReleaser on v*.*.* tags → GitHub Release
+.goreleaser.yml                # multi-platform build config
+```
+
+**Release process:**
+1. Work on a feature branch, open PR to main
+2. CI must pass before merging
+3. After merge, tag: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`
+4. GoReleaser auto-builds binaries for linux/darwin/windows × amd64/arm64
+
+**No GITHUB_TOKEN setup needed** — Actions provides it automatically.
+
+**Binary naming note:** `go install github.com/akshadjaiswal/go-forge@latest` installs a binary named `go-forge` (last path segment of module). GoReleaser pre-built archives contain a binary named `forge` (from `.goreleaser.yml binary: forge`). The two install paths produce different binary names — this is a known tradeoff, documented in README.
+
 ---
 
 ## Generated project dependencies
@@ -211,10 +235,10 @@ golang.org/x/crypto                   # bcrypt (WithAuth only)
 ## How to build and test forge
 
 ```bash
-# Build binary
+# Build binary (local dev)
 make build          # → bin/forge
 
-# Install to GOPATH/bin
+# Install to GOPATH/bin (installs as go-forge via go install)
 make install
 
 # Test generated output compiles
@@ -227,6 +251,10 @@ cd test-api && go build ./... && go vet ./...
 # Manual test — no auth, no docker
 ./bin/forge new bare-api --module github.com/akshadjaiswal/bare-api --no-auth --no-docker
 cd bare-api && go build ./... && go vet ./...
+
+# Install from GitHub and test
+go install github.com/akshadjaiswal/go-forge@latest
+go-forge new test-api --module github.com/akshadjaiswal/test-api
 ```
 
 ---

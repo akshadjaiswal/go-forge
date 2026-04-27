@@ -3,7 +3,7 @@
 Scaffold production-ready Go REST API projects in seconds.
 
 ```bash
-forge new my-api
+go-forge new my-api
 ```
 
 Like `create-react-app` but for Go backends — opinionated, complete, and ready to deploy.
@@ -39,9 +39,9 @@ my-api/
 go install github.com/akshadjaiswal/go-forge@latest
 ```
 
-> This installs the `forge` command (binary is named `forge`, not `go-forge`).
+> This installs the `go-forge` command. Run `go-forge new my-api` to get started.
 
-Or download a binary from [Releases](https://github.com/akshadjaiswal/go-forge/releases).
+Or download a pre-built binary (no Go required) from [Releases](https://github.com/akshadjaiswal/go-forge/releases).
 
 ## Usage
 
@@ -57,13 +57,13 @@ Prompts for project name, module path, and which features to include.
 
 ```bash
 # Full stack: auth + docker (defaults)
-forge new my-api --module github.com/username/my-api
+go-forge new my-api --module github.com/username/my-api
 
 # Skip auth
-forge new my-api --module github.com/username/my-api --no-auth
+go-forge new my-api --module github.com/username/my-api --no-auth
 
 # Skip docker
-forge new my-api --module github.com/username/my-api --no-docker
+go-forge new my-api --module github.com/username/my-api --no-docker
 ```
 
 ## Stack
