@@ -12,13 +12,16 @@ install:
 test:
 	go test ./...
 
-## integration-test: generate a project and verify it compiles
+## integration-test: generate projects (full + bare) and verify they compile
 integration-test: build
 	rm -rf /tmp/forge-integration-test
 	mkdir -p /tmp/forge-integration-test
 	cd /tmp/forge-integration-test && \
-		$$OLDPWD/bin/forge new test-api
-	cd /tmp/forge-integration-test/test-api && go build ./...
+		$$OLDPWD/bin/forge new test-api --module github.com/test/test-api
+	cd /tmp/forge-integration-test/test-api && go build ./... && go vet ./...
+	cd /tmp/forge-integration-test && \
+		$$OLDPWD/bin/forge new bare-api --module github.com/test/bare-api --no-auth --no-docker
+	cd /tmp/forge-integration-test/bare-api && go build ./... && go vet ./...
 	@echo "✓ Integration test passed"
 
 ## clean: remove build artifacts

@@ -44,7 +44,11 @@ func PostGenerate(opts ProjectOptions) error {
 	fmt.Println()
 	fmt.Println("Next steps:")
 	fmt.Printf("  cd %s\n", opts.Name)
-	fmt.Printf("  cp .env.example .env    # fill in DB_URL and JWT_SECRET\n")
+	if opts.WithAuth {
+		fmt.Printf("  cp .env.example .env    # fill in DB_URL and JWT_SECRET\n")
+	} else {
+		fmt.Printf("  cp .env.example .env\n")
+	}
 	fmt.Printf("  make dev                # start the server\n")
 
 	return nil

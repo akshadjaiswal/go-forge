@@ -263,7 +263,7 @@ go-forge new test-api --module github.com/akshadjaiswal/test-api
 
 1. Create `.tmpl` file in the correct group directory (`base/`, `auth/`, `docker/`, or new group)
 2. Use `[[ .FieldName ]]` delimiters — never `{{ }}`
-3. If new group: add a new dir under `templates/`, add it to `collectTemplatePaths()` in `generator.go`, add the flag to `ProjectOptions` + `TemplateData` + `cmd/new.go`
+3. If new group: add a new dir under `templates/`, add it to the `dirs` slice in `generator.go:Generate()`, add the flag to `ProjectOptions` + `TemplateData` + `cmd/new.go`
 4. If new TemplateData field needed: add to both structs in `options.go` and populate in `BuildTemplateData()`
 5. Re-run `go build ./...` on forge, then generate a test project and verify `go build ./...` on the output
 
@@ -275,7 +275,7 @@ go-forge new test-api --module github.com/akshadjaiswal/test-api
 2. Add field to `TemplateData` in `options.go`, populate in `BuildTemplateData()`
 3. Add `var flag...` + `newCmd.Flags().BoolVar(...)` in `cmd/new.go`
 4. Wire into `runNew()` — check if `flagModule != ""` to decide whether to prompt or use flag
-5. Add to `collectTemplatePaths()` in `generator.go` if it controls a template group
+5. Add to the `dirs` slice in `generator.go:Generate()` if it controls a template group
 
 ---
 
