@@ -1,5 +1,9 @@
 # go-forge
 
+[![CI](https://github.com/akshadjaiswal/go-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/akshadjaiswal/go-forge/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/badge/go-1.21+-blue)](https://go.dev)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Scaffold production-ready Go REST API projects in seconds.
 
 ```bash
@@ -11,7 +15,7 @@ Like `create-react-app` but for Go backends — opinionated, complete, and ready
 ## What it generates
 
 ```
-my-api/
+my-api/                              (25 files with auth + docker)
 ├── cmd/api/main.go              # entry point — wires config, db, router
 ├── internal/
 │   ├── config/config.go         # env var loading (godotenv)
@@ -27,7 +31,7 @@ my-api/
 ├── pkg/response/json.go         # JSON response helpers
 ├── migrations/001_create_users.sql
 ├── api/requests.http            # VS Code REST Client test file
-├── Dockerfile                   # multi-stage build → scratch image
+├── Dockerfile                   # multi-stage build → scratch image (~10MB)
 ├── docker-compose.yml           # postgres + api services
 ├── Makefile                     # dev, build, test, migrate, docker targets
 └── .env.example                 # all required env vars documented
@@ -39,32 +43,52 @@ my-api/
 go install github.com/akshadjaiswal/go-forge@latest
 ```
 
-> This installs the `go-forge` command. Run `go-forge new my-api` to get started.
+> Installs the `go-forge` binary. Run `go-forge new my-api` to get started.
 
 Or download a pre-built binary (no Go required) from [Releases](https://github.com/akshadjaiswal/go-forge/releases).
 
+> **Note:** `go install` names the binary `go-forge` (last module path segment). Pre-built release archives contain a binary named `forge`. Both work identically.
+
 ## Usage
 
-### Interactive (recommended)
+### Interactive
 
 ```bash
-forge new my-api
+go-forge new my-api
 ```
 
 Prompts for project name, module path, and which features to include.
 
 ### Non-interactive (CI / scripting)
 
+Providing `--module` skips all prompts and uses flag defaults.
+
 ```bash
 # Full stack: auth + docker (defaults)
 go-forge new my-api --module github.com/username/my-api
 
-# Skip auth
+# Skip auth (no JWT, no DB, no migrations)
 go-forge new my-api --module github.com/username/my-api --no-auth
 
 # Skip docker
 go-forge new my-api --module github.com/username/my-api --no-docker
+
+# Minimal — no auth, no docker
+go-forge new my-api --module github.com/username/my-api --no-auth --no-docker
 ```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--module` | — | Go module path. Providing this enables non-interactive mode |
+| `--no-auth` | false | Skip JWT auth, database, and migration files |
+| `--no-docker` | false | Skip Dockerfile and docker-compose |
+
+### Validation
+
+- Project name cannot be empty, contain spaces/slashes, `..`, or be `main`
+- Module path must be a valid Go module path starting with a domain (e.g. `github.com/user/repo`)
 
 ## Stack
 
@@ -84,10 +108,10 @@ Every generated project uses:
 
 ```bash
 cd my-api
-cp .env.example .env       # fill in DATABASE_URL and JWT_SECRET
+cp .env.example .env           # fill in DATABASE_URL and JWT_SECRET
 psql -U postgres -c "CREATE DATABASE my_api_db;"
-make migrate               # run SQL migrations
-make dev                   # start server on :8080
+make migrate                   # run SQL migrations
+make dev                       # start server on :8080
 ```
 
 Open `api/requests.http` in VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension to test all endpoints.
@@ -101,6 +125,8 @@ Open `api/requests.http` in VS Code with the [REST Client](https://marketplace.v
 | POST | `/auth/login` | — | Login, returns JWT |
 | GET | `/users/{id}` | Bearer | Get user by ID |
 
+> Auth endpoints only generated when `--no-auth` is not set.
+
 ## Why go-forge?
 
 Existing Go scaffolding tools either:
@@ -108,7 +134,22 @@ Existing Go scaffolding tools either:
 - Are framework-locked (Buffalo requires its ORM)
 - Are web-focused (HTML templates, not REST APIs)
 
-go-forge generates a complete, opinionated stack that you can run immediately — the same patterns used in [go-backend-production](https://github.com/akshadjaiswal/go-backend-production).
+go-forge generates a complete, opinionated stack you can run immediately — the same patterns used in [go-backend-production](https://github.com/akshadjaiswal/go-backend-production).
+
+## Local development
+
+```bash
+# Clone and build
+git clone git@github.com:akshadjaiswal/go-forge.git
+cd go-forge
+make build              # → bin/forge
+
+# Run both integration test variants (full + bare)
+make integration-test
+
+# Install to GOPATH/bin (installs as go-forge)
+make install
+```
 
 ## Author
 
