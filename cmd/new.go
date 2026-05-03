@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/akshadjaiswal/go-forge/internal/generator"
@@ -70,10 +71,13 @@ func runNew(cmd *cobra.Command, args []string) error {
 
 	// 2. Module path — from flag or prompt
 	if flagModule != "" {
+		if err := validateModulePath(flagModule); err != nil {
+			return err
+		}
 		opts.ModulePath = flagModule
 	} else {
 		defaultModule := fmt.Sprintf("github.com/username/%s", opts.Name)
-		modulePath, err := prompt("Go module path", defaultModule, validateNonEmpty)
+		modulePath, err := prompt("Go module path", defaultModule, validateModulePath)
 		if err != nil {
 			return err
 		}
@@ -152,11 +156,16 @@ func confirm(label string, defaultYes bool) (bool, error) {
 	return result == "y" || result == "yes", nil
 }
 
+var modulePathRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*/`)
+
 // validateProjectName ensures the name is safe to use as a directory name.
 func validateProjectName(s string) error {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return fmt.Errorf("project name cannot be empty")
+	}
+	if s == "main" {
+		return fmt.Errorf("project name cannot be 'main'")
 	}
 	if strings.Contains(s, "..") {
 		return fmt.Errorf("project name cannot contain '..'")
@@ -167,10 +176,20 @@ func validateProjectName(s string) error {
 	return nil
 }
 
-// validateNonEmpty rejects empty input.
-func validateNonEmpty(s string) error {
-	if strings.TrimSpace(s) == "" {
-		return fmt.Errorf("value cannot be empty")
+// validateModulePath ensures the module path is a valid Go module path.
+func validateModulePath(s string) error {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return fmt.Errorf("module path cannot be empty")
+	}
+	if strings.Contains(s, "..") {
+		return fmt.Errorf("module path cannot contain '..'")
+	}
+	if strings.ContainsAny(s, " \t\\") {
+		return fmt.Errorf("module path cannot contain spaces")
+	}
+	if !modulePathRe.MatchString(s) {
+		return fmt.Errorf("module path must start with a domain (e.g. github.com/user/repo)")
 	}
 	return nil
 }
